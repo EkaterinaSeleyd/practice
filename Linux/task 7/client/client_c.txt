@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <time.h>
+#include <inttypes.h>
+#include <string.h>
+#include <unistd.h>
+#define BILLION 1000000000L
+int main(){
+	int num;
+	printf("Number ");
+	scanf("%d", &num);
+	int zapros;
+	char cmd[1024];
+	printf("Command: ");
+	scanf("%s", &cmd);
+	int sock;
+	unit64_t diff;
+	struct timespec start, end;
+	struct sockaddr_in addr;                   //структура с адресом
+	sock = socket(AF_INET, SOCK_STREAM, 0);    //создание ТСР-сокета
+	if(sock < 0) {
+		perror("socket");
+		return 1;
+	}
+	//параметры сервера
+	addr.sin_family = AF_INET;      //домены интернет
+	addr.sin_port = htons(3425);
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	if(connect(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0) { //установка соединения с сервером
+		perror("connect");
+		return 1;
+	}
+	for (int i=0; i<zapros; i++) {
+		clock_gettime(CLOCK_MONOTIC, &start);
+ 		send(sock, cmd, sizeof(buf), 0);
+ 		recv(sock, &zapros, sizeof(int), 0);
+ 		printf("Otvet: %d\n", zapros);
+ 		clock_gettime(CLOCK_MONOTIC, &end);
+ 		diff = BILLION * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
+ 		diff *= 0.001;
+ 		printf("Time: %" PRIu64 "\n", diff);
+ 	}
+	close(sock);
+	return 0;
+}

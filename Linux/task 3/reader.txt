@@ -1,0 +1,17 @@
+#include<stdio.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<fcntl.h>
+#include<string.h>
+#include<unistd.h>
+
+#define SIZE_BUF 256
+static char buffer[SIZE_BUF];   
+int main(){
+	int fd;
+	fd = open ("dev/driver", O_RDWR);
+	read(fd, buffer, 20);
+	buffer[20]=0;
+	printf("Input: >> %s << \n", buffer);
+	close (fd);
+}

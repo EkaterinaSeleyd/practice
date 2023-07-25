@@ -1,0 +1,105 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
+#include <linux/wait.h>
+#include <linux/ioctl.h>
+#include "driverio.h"
+#include <linux/kthread.h>
+#include <linux/ioport.h>
+#include <asm/io.h>
+#ifndef __DRIVERIO_H__
+#define __DRIVERIO _H__
+#endif  __DRIVERIO _H__
+#define MAGIC_NUM 0xF1
+#define IOC_GET _IOR(MAGIC_NUM, 0, int)
+#define IOC_SET _IO (MAGIC_NUM, 1)
+#define  DEVICE_NAME "ioctl"    
+#define  CLASS_NAME  "ioctl"   
+MODULE_LICENSE("GPL");  
+
+static int counter=0;
+static int numberOpens=0;
+static struct class* devClass  = NULL; 
+static struct device* devDevice = NULL; 
+struct task_struct *ts;
+
+static long device_ioctl(struct file *filep,unsigned int cmd, unsigned long arg){
+	switch(cmd){
+		case _IO_SET: {
+			counter = 0;
+			break;
+		}
+		case _IO_GET: {
+			copy_to_user((int*) arg, &counter, sizeof(int));
+			break;
+		}
+	return 0;
+	}
+
+int thread(void *data){
+	while(1){
+		counter++;
+		msleep(100);
+		if (kthread_should_stop()) break;
+	}
+	return 0;
+}
+
+static struct file_operations fops = {
+	.open=device_open,
+	.unlocked_ioctl = device_unlocked_ioctl,
+	.owner = THIS_MODULE,
+	.release = device_release,
+}
+
+static int __init myapp_init(void) {
+	printk(KERN_INFO "Initializing the ioctl LKM\n");
+	majorNumber = register_chrdev(0, DEVICE_NAME, &fops);
+	if (majorNumber<0){
+		printk(KERN_ALERT "ioctl failed to register a major number \n");
+		return majorNumber;
+	}
+	printk(KERN_INFO "Registered correctly with major number %d\n", majorNumber);
+	ioctlClass = class_create(THIS_MODULE, CLASS_NAME);
+	if (IS_ERR(ioctlClass)){
+		unregister_chrdev(majorNumber, DEVICE_NAME);
+		printk(KERN_ALERT "Failed to register device class\n");
+		return PTR_ERR(ioctlClass);
+	}
+	printk(KERN_INFO "Device class registered correctly\n");
+	
+	ioctlDevice = device_create(ioctlClass, NULL, MKDEV(majorNumber, 0), NULL, DEVICE_NAME);
+	if (IS_ERR(ioctlDevice)){
+		class_destroy(myappClass);
+		unregister_chrdev(majorNumber, DEVICE_NAME);
+		printk(KERN_ALERT "Failed to create the device\n");
+		return PTR_ERR(ioctlDevice);
+	}
+	printk(KERN_INFO "Device class created correctly\n");
+	ts=kthread_run(thread, NULL, "foo kthread");
+	return 0;
+}
+
+static int device_open(struct inode *inodep, struct file *filep){
+   numberOpens++;
+   printk(KERN_INFO "Device has been opened %d time(s)\n", numberOpens);
+   return 0;
+}
+
+static int device_release(struct inode *inodep, struct file *filep){
+   printk(KERN_INFO "Device successfully closed\n");
+   return 0;
+}
+
+static void __exit myapp_exit(void){
+	device_destroy(ioctlClass, MKDEV(majorNumber, 0));
+	class_unregister(ioctlClass);
+	class_destroy(ioctlClass);
+	unregister_chrdev(majorNumber, DEVICE_NAME);
+	printk(KERN_INFO "Goodbye from the LKM!\n");
+	kthread_stop(ts);
+}
+
+module_init(myapp_init);
+module_exit(myapp_exit);

@@ -1,0 +1,8 @@
+[Unit]
+Description=Server
+
+[Service]
+ExecStart=/home/kate/practice/pr_6/server
+
+[Install]
+WantedBy=multi-user.target

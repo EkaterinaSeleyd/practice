@@ -1,0 +1,112 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
+#include <linux/wait.h>
+
+#define BUFFER_SIZE 25
+
+MODULE_LICENSE("GPL");
+
+static int Device_Open = 0;
+static int MAJOR = 0;
+static char *DEVICE_NAME = "driver";
+
+static char BUFFER[BUFFER_SIZE];
+static int WRITE_COUNTER = 1;
+static int READ_COUNTER = 0;
+
+wait_queue_head_t my_queue;
+init_waitqueue_head(&my_queue);
+
+static int device_open(struct inode *inode, struct file *file)
+{
+	if(Device_Open)
+		return -EBUSY;
+	Device_Open++;
+	printk(KERN_INFO"File is opened!\n");
+	try_module_get(THIS_MODULE);
+	return 0;
+}
+
+static int device_release(struct inode *inode, struct file *file)
+{
+	Device_Open--;
+	module_put(THIS_MODULE);
+	return 0;
+}
+static ssize_t device_read(struct file *flip, char *buffer, size_t length, loff_t *offset)
+{
+	int bytes_read = 0;
+	while(length && (READ_COUNTER+1 != WRITE_COUNTER) )
+	{
+		put_user(BUFFER[++READ_COUNTER], buffer++);
+		length--;
+		bytes_read++;
+		if((READ_COUNTER - BUFFER_SIZE) == 1)
+			READ_COUNTER = 0;
+	}
+	printk(KERN_INFO "length= %d, bytes_read=%d, write_c=%d, read_c=%d, userbufchar=%c", length, bytes_read, WRITE_COUNTER, READ_COUNTER, buffer);
+
+	return bytes_read;
+}
+
+static ssize_t device_write(struct file* flip, const char *buffer, size_t length, loff_t *offset)
+{
+	int bytes_written = 0;
+	// char *user_buff = (char*)buffer;
+	//printk(KERN_INFO "length = %d \n", length);
+	//printk(KERN_INFO "user input = %s \n", buffer);		
+	//printk(KERN_INFO "copy user input = %s \n", copy_users_buffer);
+
+	// if(WRITE_COUNTER == READ_COUNTER && WRITEBUFFER_COUNTER == 0)
+	// {
+	// 	BUFFER[WRITE_COUNTER++] = user_buff++;
+	// 	put_user();
+	// 	bytes_written++;
+	// }
+	//printk(KERN_INFO "write c = %d \n", WRITE_COUNTER);
+	while(bytes_written < length && (WRITE_COUNTER != READ_COUNTER 
+		|| (WRITE_COUNTER == READ_COUNTER && WRITE_COUNTER == 0)) )
+	{
+		// BUFFER[WRITE_COUNTER++] = copy_users_buffer[bytes_written];
+		get_user(BUFFER[WRITE_COUNTER++], buffer++);
+		bytes_written++;
+		if((WRITE_COUNTER - BUFFER_SIZE) == 0)
+			WRITE_COUNTER = 0;
+		printk(KERN_INFO "length= %d, bytes_written=%d, write_c=%d, read_c=%d", length, bytes_written, WRITE_COUNTER, READ_COUNTER);
+	}
+	BUFFER[WRITE_COUNTER++] = '\0';
+	printk(KERN_INFO "BUFFER = %s \n", BUFFER);
+	return bytes_written;
+}
+
+struct file_operations fops =
+{
+	.read = device_read,
+	.write = device_write,
+	.open = device_open,
+	.release = device_release
+};
+
+int init_module(void)
+{
+	printk(KERN_INFO"Init module! \n");
+	MAJOR = register_chrdev(0, DEVICE_NAME, &fops);
+	if(MAJOR < 0)
+	{
+		printk(KERN_ALERT"Registering char device failed with %d\n", MAJOR);
+		return MAJOR;
+	}
+		printk(KERN_ALERT"Registered char device with major number %d\n", MAJOR);
+		printk(KERN_ALERT"The driver create a dev file with\n");
+		printk(KERN_ALERT"'mknod /dev/%s c %d 0.'\n", DEVICE_NAME, MAJOR);
+	return 0;
+}
+void cleanup_module(void)
+{
+	unregister_chrdev(MAJOR, DEVICE_NAME);
+	printk(KERN_INFO"Cleanup!\n");
+}
+
+

@@ -1,0 +1,71 @@
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/pci.h>
+
+#define  DEVICE_NAME "pcidriver"
+
+MODULE_LICENSE("GPL");
+
+static struct pci_device_id rtl8086_pci_tbl[] = {
+	{PCI_DEVICE (0x8086, 0x100e)},
+	{0,}
+};
+MODULE_DEVICE_TABLE(pci, rtl8086_pci_tbl);
+
+static int rtl8086_probe_one(struct pci_dev *, const struct pci_device_id *);
+static void rtl8086_remove_one(struct pci_dev *);
+
+static struct pci_driver rtl8086_pci_driver= {
+	.name = DEVICE_NAME,
+	.id_table = rtl8086_pci_tbl,
+	.probe = rtl8086_probe_one,
+	.remove = rtl8086_remove_one,
+};
+
+static int __init rtl8086_init_module (void) {
+	printk(KERN_INFO "Init is successfully!\n");
+	return pci_register_driver(&rtl8086_pci_driver);
+}
+
+void __exit rtl8086_cleanup_module(void)
+{
+	printk(KERN_INFO "Cleanup is successfully!\n");
+	pci_unregister_driver(&rtl8086_pci_driver);
+}
+
+unsigned int port_addr;
+unsigned int dev_size;
+unsigned char* dev_virtual;
+
+int rtl8086_probe_one(struct pci_dev *dev, const struct pci_device_id *id){
+        unsigned int i = 0;
+	port_addr = pci_resource_start(dev, 0);
+	dev_size = pci_resource_len(dev, 0);
+	dev_virtual = ioremap(port_addr, dev_size);
+	while(i < dev_size) {
+		unsigned int data = ioread8(&dev_virtual[i]);
+		if(data == 0x08){
+			pr_info("data: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+			(unsigned int)data,
+			(unsigned int)ioread8(&dev_virtual[i+1]),
+			(unsigned int)ioread8(&dev_virtual[i+2]),
+			(unsigned int)ioread8(&dev_virtual[i+3]),
+			(unsigned int)ioread8(&dev_virtual[i+4]),
+			(unsigned int)ioread8(&dev_virtual[i+5]));
+			pr_info("i = %d\n", i);
+			break;
+		}
+		i++;
+	}	
+	printk(KERN_INFO "Probe is successfully!\n");
+	return 0;
+}
+void rtl8086_remove_one(struct pci_dev *dev)
+{
+	printk(KERN_INFO "Remove is successfully!\n");
+}
+
+
+module_init(rtl8086_init_module);
+
+module_exit(rtl8086_cleanup_module);

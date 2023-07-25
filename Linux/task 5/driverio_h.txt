@@ -1,0 +1,11 @@
+#ifndef DRIVERIO_H
+#define DRIVERIO_H
+#include <linux/ioctl.h> 
+#define MAGIC_NUM 0xF1 //старший номер устройства
+#define IOCTL_SET_MSG _IO(MAGIC_NUM, 0) //установка сообщения драйвера устройства
+//создаем номер команды  ioctl для передачи информации от пользователя к ядру
+#define IOCTL_GET_MSG _IOR(MAGIC_NUM, 1, int *) //получение сообщения драйвера устройства
+//имя файла устройства
+#define DEVICE_FILE_NAME "ioctl" 
+#define DEVICE_PATH "/dev/ioctl" 
+#endif 

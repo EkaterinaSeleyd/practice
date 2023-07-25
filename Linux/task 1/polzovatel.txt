@@ -1,0 +1,14 @@
+#include <sys/types.h>
+#include <fcntl.h>
+#include <stdio.h>
+
+int main() {
+	int fd;
+	char buf[100];
+	fd = open("/dev/pract_1",O_RDWR);
+	read(fd,buf,20);
+	buf[20]=0;
+	printf("Input: >>>%s<<<\n",buf);
+	close(fd);
+	return 0;
+}
